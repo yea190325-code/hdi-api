@@ -9,28 +9,37 @@ import re
 app = Flask(__name__)
 CORS(app)
 
-# --- API KİMLİK BİLGİLERİ (HDI'den Gelenler) ---
+# --- API KİMLİK BİLGİLERİ (HDI Canlı Ortam Bilgilerin) ---
 CLIENT_ID = "SGmMJGYyNCcVlR4FpdyV717Io08a"
 CLIENT_SECRET = "o_U44kFrwU7TdpbGUCCofE2eje4a"
 
-# Legacy bilgiler (XML içinde gönderilecek)
+# Legacy bilgiler (XML içinde gönderilecek, WS ile başlayan canlı şifren)
 HDI_USER = "WS36570000" 
 HDI_PWD = "8yZD37pb"
 
-# API URL'leri (Test Ortamı)
-# Canlıya çıkarken 'apimtest' kısımlarını 'apim' olarak değiştirmeyi unutma.
+# API URL'leri (CANLI ORTAM)
 TOKEN_URL = "https://apim.hdisigorta.com.tr/hdi/token"
 HDI_API_URL = "https://apim.hdisigorta.com.tr/hdi/acente/police/uretim/kasko/legacy/hesapla"
 
+# --- PROXY AYARLARI ---
+# Verdiğin proxy bilgileri formata uygun şekilde eklendi
+PROXY_URL = "http://User-001:1Q7Jwd0.)@78.186.21.23:3310"
+PROXIES = {
+    "http": PROXY_URL,
+    "https": PROXY_URL
+}
+
 def get_hdi_token():
-    """HDI Token servisinden Basic Auth ile Access Token alır."""
+    """HDI Token servisinden Basic Auth ile Access Token alır (Proxy üzerinden)."""
     try:
-        # Dokümandaki 1. Adım: ClientKey ve Secret ile Basic Auth
-        response = requests.get(TOKEN_URL, auth=HTTPBasicAuth(CLIENT_ID, CLIENT_SECRET))
+        response = requests.get(
+            TOKEN_URL, 
+            auth=HTTPBasicAuth(CLIENT_ID, CLIENT_SECRET),
+            proxies=PROXIES, # Proxy ile çıkış yapıyoruz
+            timeout=15
+        )
         response.raise_for_status()
         token_data = response.json()
-        
-        # Dokümandaki 2. Adım: access_token alanını döndür
         return token_data.get("access_token")
     except Exception as e:
         print("Token Alınamadı:", str(e))
@@ -45,7 +54,7 @@ def fiyat_al():
     plaka = data.get('plaka')
     tescil_no = data.get('tescilNo')
     
-    # Plaka ayrıştırma (Örn: 25 -> il, ABC123 -> kod)
+    # Plaka ayrıştırma
     plaka_match = re.match(r"(\d{2})([A-Z0-9]+)", plaka.replace(" ", ""))
     if not plaka_match:
         return jsonify({"success": False, "message": "Geçersiz plaka formatı."})
@@ -57,7 +66,7 @@ def fiyat_al():
     dogum_yili = dogum_tarihi.split('.')[-1] if '.' in dogum_tarihi else ""
     bugun = datetime.datetime.now().strftime("%d%m%Y")
 
-    # XML Gövdesi (Legacy parametreler)
+    # XML Gövdesi
     xml_body = f"""<HDISIGORTA>
         <user>{HDI_USER}</user>
         <pwd>{HDI_PWD}</pwd>
@@ -78,15 +87,21 @@ def fiyat_al():
     if not access_token:
         return jsonify({"success": False, "message": "HDI Sistemine güvenlik yetkilendirmesi yapılamadı (Token Hatası)."})
 
-    # --- 2. ASIL İSTEĞİ ATMA İŞLEMİ (Bearer Auth ile) ---
+    # --- 2. ASIL İSTEĞİ ATMA İŞLEMİ (Bearer Auth ve Proxy ile) ---
     headers = {
-        'Authorization': f'Bearer {access_token}', # Dokümandaki 4. Adım
+        'Authorization': f'Bearer {access_token}', 
         'Content-Type': 'application/xml',
         'Accept': 'application/xml'
     }
 
     try:
-        response = requests.get(HDI_API_URL, params={'xmlData': xml_body}, headers=headers)
+        response = requests.get(
+            HDI_API_URL, 
+            params={'xmlData': xml_body}, 
+            headers=headers,
+            proxies=PROXIES, # Fiyat sorgusu da proxy üzerinden gidiyor
+            timeout=30 
+        )
         response.raise_for_status()
         
         # Yanıtı çözümle

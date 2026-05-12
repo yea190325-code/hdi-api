@@ -9,13 +9,7 @@ import re
 app = Flask(__name__)
 CORS(app)
 
-# --- API KİMLİK BİLGİLERİ (HDI Canlı Ortam Bilgilerin) ---
-CLIENT_ID = "SGmMJGYyNCcVlR4FpdyV717Io08a"
-CLIENT_SECRET = "o_U44kFrwU7TdpbGUCCofE2eje4a"
 
-# Legacy bilgiler (XML içinde gönderilecek, WS ile başlayan canlı şifren)
-HDI_USER = "WS36570000" 
-HDI_PWD = "8yZD37pb"
 
 # API URL'leri (CANLI ORTAM)
 TOKEN_URL = "https://apim.hdisigorta.com.tr/hdi/token"
